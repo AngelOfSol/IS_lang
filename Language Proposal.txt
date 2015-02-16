@@ -62,20 +62,8 @@ concept<A> addable {
 	add(self as A, rhs as A) -> A;
 }
 
-function add(self as point, rhs as point) -> point {
-	return point { 
-		x: (self.x + rhs.x);
-		y: (self.y + rhs.y)
-	};
-}
-function add(self as int_array, rhs as int_array) -> int_array {
-	// ignore array syntax, not finalized
-	let ret as int_array = { vals: int[self.size] };
-	for(i as int = 0; i < self.size; i++) {
-		ret[i] = self[i] + rhs[i];
-	}	
-	return ret;
-}
+function add(self as point, rhs as point) -> point;
+function add(self as int_array, rhs as int_array) -> int_array;
 
 Since both int_array and point implement addable, functions can be created along the addable concept as a form of generics:
 
