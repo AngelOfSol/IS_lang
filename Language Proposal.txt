@@ -1,0 +1,187 @@
+Language Proposal
+
+C style language.
+
+Uniform Functional Call Syntax
+
+f(x, y) == x.f(y)
+
+Seperation of Data and Behavior
+struct player
+{
+	int x, y;
+	string name;
+	// function move (x, y) -> void
+	// the above isn't allowed.
+}
+
+instead the following
+
+function move(this as player, x as int, y as int) -> void
+{
+	this.x = x;
+	this.y = y;
+}
+
+can be called by both of the following:
+player p;
+p.move(10, 20);
+move(p, 10, 20);
+
+Seperation of referencing and nullability
+
+In C and C++ a pointer is representented by T* where T is the object type.  * has 2 definitions in this context: refers to location in memory AND can be null.
+I propose instead to have 2 operators: & and ?
+A pointer would become T&?.  An increase in verbosity is here, but allows language support of optional types.
+C++
+         | value | reference |
+no-null  |   T   |    T&     |
+nullable | none  |    T*     |
+New Lang
+         | value | reference |
+no-null  |   T   |    T&     |
+nullable |  T?   |    T&?    |
+
+the -> operator would also change from deref to denull
+two keywords are added to support this concept nullval and nullref
+
+Concepts and Inheritance
+Inheritance is a good way to model objects and allow code reuse but can lead to a variety of problems (over OO use, multiple inheritance problems, preference for dynamic dispatch)
+I prefer the idea of concepts, in which if a structure conforms to the concept it can be considered as part of the set that is that concept.
+
+struct point {
+	int x;
+	int y;
+}
+struct int_array {
+	int[] vals;
+}
+
+concept<A> addable {
+	add(self as SAME_TYPE, rhs as SAME_TYPE) -> SAME_TYPE;
+}
+
+function add(self as point, rhs as point) -> point {
+	return point { 
+		x: (self.x + rhs.x);
+		y: (self.y + rhs.y)
+	};
+}
+function add(self as int_array, rhs as int_array) -> int_array {
+	// ignore array syntax, not finalized
+	let ret as int_array = { vals: int[self.size] };
+	for(i as int = 0; i < self.size; i++) {
+		ret[i] = self[i] + rhs[i];
+	}	
+	return ret;
+}
+
+Since both int_array and point implement addable, functions can be created along the addable concept as a form of generics:
+
+struct vec3d {
+	int x, y, z;
+}
+
+concept<A> twiceable {
+	twice(self as A) -> A;
+}
+
+function<A> twice(self as A) -> A with A as Addable {
+	return self.add(self);
+}
+// placeholder intializers
+int_array na = ...;
+point p1 = ...;
+vec3d v1 = ...;
+p1.twice(); // static dispatch
+na.twice(); // static dispatch
+v1.twice(); // ERROR - no function called twice found.  The one provided by twice(as addable) can't be used as vec3d is not addable
+
+twiceable& test_ref = &na;
+test_ref.twice(); // dynamic dispatch
+
+This actually show cases two features of the concept system.  
+First: functions and structures can be created of a concept, since the concept specifies an interface.  This leads to code reuse via generic functions and types.
+Second: pointers to concepts may be created allowing dynamic dispatch of functions along concepts.
+
+Also concepts are allowed to specify public members required by the concept.
+
+concept<A> Living {
+	int age;
+}
+
+function get_birth_year(Living a) -> int {
+	return current_year - a.age;
+}
+
+Any struct made can be verified by the compiler to fulfill a concept requirements.  As long as at the scope at which contains the call to a generic method or assignment to concept shows the requirements of the concept at the local scope (important because normally such things would be namespaced).
+
+concept<A, B> Convertible {
+	function to(self as A) -> B
+}
+
+concept<A, B, C> Addable2 {
+	function add(A, B) -> C;
+}
+
+Concepts can also be paramterized along more than one type parameter, allowing more types of generic function creation.  Through the use of multi dispatch, this can be extended to a dynamic context as well.
+
+// assume implementations for the following
+function to(int[2]) -> point;
+
+function add(point, point) -> point;
+function add(int[2], point) -> point;
+function add(point, int[2]) -> point;
+function add(int[2], int[2]) -> point;
+
+let xy as int[2] = ...;
+let xy_point as point = xy.to!point(); // or to!point(xy)
+let xy_ref as Convertible<_, point> = xy;
+let xy_point_ref as point = xy_point.to!point();
+
+let addable_arr as Addable2<_, _>& = xy;
+let addable_point as Addable2<_, _>& = xy_point; 
+let new_point as point = addable_arr.add(addable_point); // runtime dispatch to add(int[2], point) -> point
+
+More realistic example:
+
+struct plane;
+struct cube;
+struct sphere;
+
+concept<A, B> collidable {
+	function is_colliding(A, B) -> bool;
+}
+
+function is_colliding(plane, plane) -> bool;
+function is_colliding(plane, cube) -> bool;
+function is_colliding(plane, sphere) -> bool;
+
+function is_colliding(cube, cube) -> bool;
+function is_colliding(cube, sphere) -> bool;
+
+function is_colliding(sphere, sphere) -> bool;
+
+There is still work to be done on the syntax creation of pointers to such types to actually allow dynamic invocation.  Without inheritance classifying objects into sets may require new syntax.  Currently contemplating the following syntax:
+
+concept_set<A, B> for collidable<A, B> as game_object<_, _> {
+	A: [
+		plane,
+		cube,
+		sphere,
+	],
+	B: [
+		plane,
+		cube,
+		sphere,
+	]
+}
+
+allows the following:
+let ptr as game_object<_, _> = plane; // or cube, or sphere 
+let ptr as game_object<~, _> = plane; // specifies that the ptr as to the second type argument in a game_object 
+									  // the sigil (~) would likely change to something more informative
+
+collidable has no ordering requirements and does not state that colliding is commutative.  type A colliding into type B is not the same as type B colliding into type A.  concept_set specifies that the following of each must be available for each type argument as specified.
+
+Compiler checks would make sure all such functions were created and legal
