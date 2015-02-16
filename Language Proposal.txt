@@ -37,6 +37,7 @@ C++
          | value | reference |
 no-null  |   T   |    T&     |
 nullable | none  |    T*     |
+
 New Lang
          | value | reference |
 no-null  |   T   |    T&     |
@@ -58,7 +59,7 @@ struct int_array {
 }
 
 concept<A> addable {
-	add(self as SAME_TYPE, rhs as SAME_TYPE) -> SAME_TYPE;
+	add(self as A, rhs as A) -> A;
 }
 
 function add(self as point, rhs as point) -> point {
