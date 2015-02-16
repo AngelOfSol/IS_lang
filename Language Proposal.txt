@@ -184,4 +184,7 @@ let ptr as game_object<~, _> = plane; // specifies that the ptr as to the second
 
 collidable has no ordering requirements and does not state that colliding is commutative.  type A colliding into type B is not the same as type B colliding into type A.  concept_set specifies that the following of each must be available for each type argument as specified.
 
-Compiler checks would make sure all such functions were created and legal
+Compiler checks would make sure all such functions were created and legal.  I'm considering requiring the keyword dynamic (or dyn) in front of function calls that would be dynamic to make it obvious such calls are intended to be dynamic.
+
+Lastly, I would like an AST based macro system, but that is very minor compared to the rest of the language.
+AST macros, once invoked, use the parser to read tokens and then put tokens back into the stream.  They would have to use the same semantic notion of the AST as the compiler does.
